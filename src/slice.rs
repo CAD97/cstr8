@@ -2,6 +2,7 @@
 use {
     crate::CString8,
     alloc::{borrow::ToOwned, string::String},
+    core::mem,
 };
 
 #[cfg(feature = "std")]
@@ -9,7 +10,7 @@ use std::path::Path;
 
 use {
     core::{
-        cmp, fmt, mem,
+        cmp, fmt,
         ops::{Deref, Index},
         slice::SliceIndex,
         str::{self, Utf8Error},
