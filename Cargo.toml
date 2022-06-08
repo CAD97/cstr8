@@ -2,7 +2,7 @@
 name = "cstr8"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.56.0"
+rust-version = "1.58.0"
 
 description = "string types that are both valid UTF-8 and nul-terminated"
 license = "MIT OR Apache-2.0"
