@@ -153,11 +153,11 @@ impl ToOwned for CStr8 {
         unsafe { CString8::from_vec_unchecked(self.as_bytes_with_nul().to_owned()) }
     }
 
-    fn clone_into(&self, target: &mut CString8) {
-        let mut b = mem::take(target).into_bytes_with_nul();
-        self.as_bytes_with_nul().clone_into(&mut b);
-        *target = unsafe { CString8::from_vec_unchecked(b) }
-    }
+    // fn clone_into(&self, target: &mut CString8) {
+    //     let mut b = mem::take(target).into_bytes_with_nul();
+    //     self.as_bytes_with_nul().clone_into(&mut b);
+    //     *target = unsafe { CString8::from_vec_unchecked(b) }
+    // }
 }
 
 impl<I> Index<I> for CStr8
