@@ -1,0 +1,12 @@
+[package]
+name = "cstr8"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["std"]
+std = ["alloc"]
+alloc = []
+
+[dependencies]
+thiserror = "1.0.31"
