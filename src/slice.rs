@@ -2,7 +2,7 @@
 use {
     crate::CString8,
     alloc::{borrow::ToOwned, string::String},
-    core::mem,
+    // core::mem,
 };
 
 #[cfg(feature = "std")]
