@@ -130,9 +130,16 @@ impl CString8 {
         self.raw.into_raw() as _
     }
 
-    /// Converts the `CString8` into a [`String`].
+    /// Converts the `CString8` into a [`String`]
+    /// *without* the trailing nul terminator.
     pub fn into_string(self) -> String {
-        unsafe { self.raw.into_string().unwrap_unchecked() }
+        unsafe { String::from_utf8_unchecked(self.into_bytes()) }
+    }
+
+    /// Converts the `CString8` into a [`String`]
+    /// *with* the trailing nul terminator.
+    pub fn into_string_with_nul(self) -> String {
+        unsafe { String::from_utf8_unchecked(self.into_bytes_with_nul()) }
     }
 
     /// Converts the `CString8` into its underlying byte buffer
