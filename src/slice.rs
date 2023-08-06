@@ -270,6 +270,40 @@ impl CStr8 {
         Ok(unsafe { CStr8::from_utf8_with_nul_unchecked(v) })
     }
 
+    /// Asserts that the byte slice contains a nul-terminator and is valid UTF-8
+    /// up to that point.
+    ///
+    /// If the first byte is a nul character, this method will return an empty
+    /// `CStr8`. If multiple nul characters are present, the `CStr8` will end
+    /// at the first one.
+    ///
+    /// If the slice only has a single nul byte at the end, this method is
+    /// equivalent to [`CStr8::from_bytes_with_nul`].
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use cstr8::CStr8;
+    ///
+    /// let mut buffer = [0u8; 16];
+    /// unsafe {
+    ///     // Here we might call an unsafe C function that writes a string
+    ///     // into the buffer.
+    ///     let buf_ptr = buffer.as_mut_ptr();
+    ///     buf_ptr.write_bytes(b'A', 8);
+    /// }
+    /// // Attempt to extract a nul-terminated string from the buffer.
+    /// let c_str = CStr8::from_utf8_until_nul(&buffer)?;
+    /// assert_eq!(c_str, "AAAAAAAA");
+    /// # Ok::<_, cstr8::CStr8Error>(())
+    /// ```
+    pub fn from_utf8_until_nul(v: &[u8]) -> Result<&CStr8, CStr8Error> {
+        let v = CStr::from_bytes_until_nul(v)
+            .map(CStr::to_bytes_with_nul)
+            .unwrap_or_default();
+        Self::from_utf8_with_nul(v)
+    }
+
     /// Unsafely assumes that the byte slice is valid UTF-8 and nul-terminated.
     ///
     /// # Safety
@@ -287,7 +321,7 @@ impl CStr8 {
     /// The provided pointer must reference valid nul-terminated UTF-8, and the
     /// chosen lifetime must not outlive the raw C string's provenance.
     pub unsafe fn from_ptr<'a>(ptr: *const u8) -> &'a CStr8 {
-        CStr8::from_utf8_with_nul_unchecked(CStr::from_ptr(ptr as _).to_bytes_with_nul())
+        CStr8::from_utf8_with_nul_unchecked(CStr::from_ptr(ptr.cast()).to_bytes_with_nul())
     }
 }
 
