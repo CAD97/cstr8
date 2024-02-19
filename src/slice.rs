@@ -355,8 +355,8 @@ impl std::error::Error for CStr8Error {
 impl fmt::Display for CStr8Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            CStr8Error::InvalidUtf8(_0) => f.write_str("invalid UTF-8"),
-            CStr8Error::NulError(_0) => f.write_str("invalid nul terminator"),
+            CStr8Error::InvalidUtf8(_) => f.write_str("invalid UTF-8"),
+            CStr8Error::NulError(_) => f.write_str("invalid nul terminator"),
         }
     }
 }

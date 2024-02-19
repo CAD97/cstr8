@@ -179,8 +179,8 @@ impl std::error::Error for CString8Error {
 impl fmt::Display for CString8Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            CString8Error::InvalidUtf8(_0) => f.write_str("invalid UTF-8"),
-            CString8Error::NulError(_0) => f.write_str("invalid nul terminator"),
+            CString8Error::InvalidUtf8(_) => f.write_str("invalid UTF-8"),
+            CString8Error::NulError(_) => f.write_str("invalid nul terminator"),
         }
     }
 }
