@@ -56,7 +56,7 @@ pub struct Concat<A, B>(pub A, pub B);
 ///
 /// It's `transmute_copy` but without the reference.
 pub const unsafe fn transmute_prefix<From, To>(from: From) -> To {
-    use std::mem::ManuallyDrop;
+    use core::mem::ManuallyDrop;
 
     #[repr(C)]
     union Transmute<From, To> {

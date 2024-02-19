@@ -2,9 +2,6 @@
 
 #![no_std]
 
-#[cfg(not(feature = "std"))]
-extern crate core as std;
-
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
@@ -23,6 +20,3 @@ mod slice;
 pub use self::buf::*;
 
 pub use self::{macros::*, slice::*};
-
-#[cfg(not(feature = "std"))]
-compile_error!("std feature is currently required");

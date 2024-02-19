@@ -6,7 +6,6 @@ use {
     },
     core::{borrow::Borrow, fmt, ops::Deref, str},
     std::ffi::{CStr, CString, FromVecWithNulError, NulError},
-    thiserror::Error,
 };
 
 /// Owned string which is guaranteed UTF-8 and nul-terminated.
@@ -158,12 +157,41 @@ impl CString8 {
 /// An error converting to [`CString8`].
 ///
 /// If multiple errors apply, which one you get back is unspecified.
-#[derive(Debug, Error)]
+#[derive(Debug)]
 pub enum CString8Error {
     /// The string is not valid UTF-8.
-    #[error("invalid UTF-8")]
-    InvalidUtf8(#[from] FromUtf8Error),
+    InvalidUtf8(FromUtf8Error),
     /// The string does not contain a singular terminating nul byte.
-    #[error("invalid nul terminator")]
-    NulError(#[from] FromVecWithNulError),
+    NulError(FromVecWithNulError),
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for CString8Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            CString8Error::InvalidUtf8(source) => Some(source),
+            CString8Error::NulError(source) => Some(source),
+        }
+    }
+}
+
+impl fmt::Display for CString8Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            CString8Error::InvalidUtf8(_0) => f.write_str("invalid UTF-8"),
+            CString8Error::NulError(_0) => f.write_str("invalid nul terminator"),
+        }
+    }
+}
+
+impl From<FromUtf8Error> for CString8Error {
+    fn from(source: FromUtf8Error) -> Self {
+        CString8Error::InvalidUtf8(source)
+    }
+}
+
+impl From<FromVecWithNulError> for CString8Error {
+    fn from(source: FromVecWithNulError) -> Self {
+        CString8Error::NulError(source)
+    }
 }

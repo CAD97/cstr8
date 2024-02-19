@@ -1,22 +1,13 @@
-#[cfg(feature = "alloc")]
-use {
-    crate::CString8,
-    alloc::{borrow::ToOwned, string::String},
-    // core::mem,
-};
-
 #[cfg(feature = "std")]
-use std::path::Path;
+use std::{ffi::OsStr, path::Path};
 
-use {
-    core::{
-        cmp, fmt,
-        ops::{Deref, Index},
-        slice::SliceIndex,
-        str::{self, Utf8Error},
-    },
-    std::ffi::{CStr, FromBytesWithNulError, OsStr},
-    thiserror::Error,
+use core::{
+    cmp,
+    ffi::{CStr, FromBytesWithNulError},
+    fmt,
+    ops::{Deref, Index},
+    slice::SliceIndex,
+    str::{self, Utf8Error},
 };
 
 /// String slice which is guaranteed UTF-8 and nul-terminated.
@@ -73,18 +64,6 @@ impl AsRef<[u8]> for CStr8 {
     }
 }
 
-impl AsRef<OsStr> for CStr8 {
-    fn as_ref(&self) -> &OsStr {
-        self.as_os_str()
-    }
-}
-
-impl AsRef<Path> for CStr8 {
-    fn as_ref(&self) -> &Path {
-        self.as_path()
-    }
-}
-
 impl PartialEq<str> for CStr8 {
     fn eq(&self, other: &str) -> bool {
         self.as_str() == other
@@ -133,31 +112,53 @@ impl PartialOrd<CStr8> for CStr {
     }
 }
 
-impl PartialEq<String> for CStr8 {
-    fn eq(&self, other: &String) -> bool {
-        self.as_str() == other
-    }
-}
-
-impl PartialEq<CStr8> for String {
-    fn eq(&self, other: &CStr8) -> bool {
-        self == other.as_str()
-    }
-}
-
 #[cfg(feature = "alloc")]
-impl ToOwned for CStr8 {
-    type Owned = CString8;
+mod alloc_impls {
+    use crate::{CStr8, CString8};
+    use alloc::{borrow::ToOwned, string::String};
 
-    fn to_owned(&self) -> CString8 {
-        unsafe { CString8::from_vec_unchecked(self.as_bytes_with_nul().to_owned()) }
+    impl PartialEq<String> for CStr8 {
+        fn eq(&self, other: &String) -> bool {
+            self.as_str() == other
+        }
     }
 
-    // fn clone_into(&self, target: &mut CString8) {
-    //     let mut b = mem::take(target).into_bytes_with_nul();
-    //     self.as_bytes_with_nul().clone_into(&mut b);
-    //     *target = unsafe { CString8::from_vec_unchecked(b) }
-    // }
+    impl PartialEq<CStr8> for String {
+        fn eq(&self, other: &CStr8) -> bool {
+            self == other.as_str()
+        }
+    }
+    impl ToOwned for CStr8 {
+        type Owned = CString8;
+
+        fn to_owned(&self) -> CString8 {
+            unsafe { CString8::from_vec_unchecked(self.as_bytes_with_nul().to_owned()) }
+        }
+
+        // fn clone_into(&self, target: &mut CString8) {
+        //     let mut b = mem::take(target).into_bytes_with_nul();
+        //     self.as_bytes_with_nul().clone_into(&mut b);
+        //     *target = unsafe { CString8::from_vec_unchecked(b) }
+        // }
+    }
+}
+
+#[cfg(feature = "std")]
+mod std_impls {
+    use crate::CStr8;
+    use std::{ffi::OsStr, path::Path};
+
+    impl AsRef<OsStr> for CStr8 {
+        fn as_ref(&self) -> &OsStr {
+            self.as_str().as_ref()
+        }
+    }
+
+    impl AsRef<Path> for CStr8 {
+        fn as_ref(&self) -> &Path {
+            self.as_str().as_ref()
+        }
+    }
 }
 
 impl<I> Index<I> for CStr8
@@ -214,7 +215,7 @@ impl CStr8 {
     /// You can also just use the generic prelude [`AsRef::as_ref`] instead.
     #[cfg(feature = "std")]
     pub fn as_os_str(&self) -> &OsStr {
-        self.as_str().as_ref()
+        self.as_ref()
     }
 
     /// Converts this to a normal path slice.
@@ -223,7 +224,7 @@ impl CStr8 {
     /// You can also just use the generic prelude [`AsRef::as_ref`] instead.
     #[cfg(feature = "std")]
     pub fn as_path(&self) -> &Path {
-        self.as_str().as_ref()
+        self.as_ref()
     }
 }
 
@@ -328,12 +329,41 @@ impl CStr8 {
 /// An error converting to [`CStr8`].
 ///
 /// If multiple errors apply, which one you get back is unspecified.
-#[derive(Debug, Error)]
+#[derive(Debug)]
 pub enum CStr8Error {
     /// The string is not valid UTF-8.
-    #[error("invalid UTF-8")]
-    InvalidUtf8(#[from] Utf8Error),
+    InvalidUtf8(Utf8Error),
     /// The string does not contain a singular terminating nul byte.
-    #[error("invalid nul terminator")]
-    NulError(#[from] FromBytesWithNulError),
+    NulError(FromBytesWithNulError),
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for CStr8Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            CStr8Error::InvalidUtf8(source) => Some(source),
+            CStr8Error::NulError(source) => Some(source),
+        }
+    }
+}
+
+impl fmt::Display for CStr8Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            CStr8Error::InvalidUtf8(_0) => f.write_str("invalid UTF-8"),
+            CStr8Error::NulError(_0) => f.write_str("invalid nul terminator"),
+        }
+    }
+}
+
+impl From<Utf8Error> for CStr8Error {
+    fn from(source: Utf8Error) -> Self {
+        CStr8Error::InvalidUtf8(source)
+    }
+}
+
+impl From<FromBytesWithNulError> for CStr8Error {
+    fn from(source: FromBytesWithNulError) -> Self {
+        CStr8Error::NulError(source)
+    }
 }
