@@ -166,6 +166,7 @@ pub enum CString8Error {
 }
 
 #[cfg(feature = "std")]
+#[cfg_attr(feature = "doc_nightly", doc(cfg(feature = "std")))]
 impl std::error::Error for CString8Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {

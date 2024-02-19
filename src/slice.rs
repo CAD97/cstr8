@@ -113,6 +113,7 @@ impl PartialOrd<CStr8> for CStr {
 }
 
 #[cfg(feature = "alloc")]
+#[cfg_attr(feature = "doc_nightly", doc(cfg(feature = "alloc")))]
 mod alloc_impls {
     use crate::{CStr8, CString8};
     use alloc::{borrow::ToOwned, string::String};
@@ -144,6 +145,7 @@ mod alloc_impls {
 }
 
 #[cfg(feature = "std")]
+#[cfg_attr(feature = "doc_nightly", doc(cfg(feature = "std")))]
 mod std_impls {
     use crate::CStr8;
     use std::{ffi::OsStr, path::Path};
@@ -214,6 +216,7 @@ impl CStr8 {
     ///
     /// You can also just use the generic prelude [`AsRef::as_ref`] instead.
     #[cfg(feature = "std")]
+    #[cfg_attr(feature = "doc_nightly", doc(cfg(feature = "std")))]
     pub fn as_os_str(&self) -> &OsStr {
         self.as_ref()
     }
@@ -223,6 +226,7 @@ impl CStr8 {
     ///
     /// You can also just use the generic prelude [`AsRef::as_ref`] instead.
     #[cfg(feature = "std")]
+    #[cfg_attr(feature = "doc_nightly", doc(cfg(feature = "std")))]
     pub fn as_path(&self) -> &Path {
         self.as_ref()
     }
@@ -279,7 +283,7 @@ impl CStr8 {
     /// at the first one.
     ///
     /// If the slice only has a single nul byte at the end, this method is
-    /// equivalent to [`CStr8::from_bytes_with_nul`].
+    /// equivalent to [`CStr8::from_utf8_with_nul`].
     ///
     /// # Examples
     ///
@@ -338,6 +342,7 @@ pub enum CStr8Error {
 }
 
 #[cfg(feature = "std")]
+#[cfg_attr(feature = "doc_nightly", doc(cfg(feature = "std")))]
 impl std::error::Error for CStr8Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
