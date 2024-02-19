@@ -1,6 +1,8 @@
 name: CI
 on:
   pull_request:
+    branches:
+      - main
   push:
     branches:
       - main
@@ -9,12 +11,49 @@ jobs:
   tests:
     name: Tests
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust:
+          - stable
+          - 1.69.0 # MSRV
+          - nightly
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
-      - name: Install msrv toolchain
-        uses: dtolnay/rust-toolchain@1.69
-      - name: Build tests
-        run: cargo test --no-run
-      - name: Run tests
+        uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@master
+        name: Setup rust toolchain
+        with:
+          toolchain: ${{ matrix.rust }}
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        name: Load dependencies from cache
+
+      - name: Build with default features
+        run: cargo build
+
+      - name: Build with unstable features
+        if: ${{ matrix.rust == 'nightly' }}
+        run: cargo build --all-features
+
+      - name: Build with no_std
+        run: cargo build --no-default-features
+
+      - name: Build with no_std+alloc
+        run: cargo build --no-default-features --features alloc
+
+      - name: Test with default features
         run: cargo test
+
+      - name: Test with minimal features
+        run: cargo test --no-default-features
+
+      - name: Check for non-standard formatting
+        if: ${{ matrix.rust == 'stable' }}
+        run: cargo fmt --all -- --check
+
+      - name: Check for clippy hints
+        if: ${{ matrix.rust == 'stable' }}
+        run: cargo clippy --workspace --all-targets -- -D warnings
