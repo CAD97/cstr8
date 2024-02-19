@@ -1,11 +1,11 @@
 use {
     crate::CStr8,
     alloc::{
+        ffi::{CString, FromVecWithNulError, NulError},
         string::{FromUtf8Error, String},
         vec::Vec,
     },
-    core::{borrow::Borrow, fmt, ops::Deref, str},
-    std::ffi::{CStr, CString, FromVecWithNulError, NulError},
+    core::{borrow::Borrow, ffi::CStr, fmt, ops::Deref, str},
 };
 
 /// Owned string which is guaranteed UTF-8 and nul-terminated.
