@@ -110,10 +110,12 @@ impl From<CString8> for Rc<CStr8> {
 
 #[cfg(feature = "std")]
 mod std_impls {
-    use crate::CString8;
-    use std::{
-        ffi::{OsStr, OsString},
-        path::{Path, PathBuf},
+    use {
+        crate::CString8,
+        std::{
+            ffi::{OsStr, OsString},
+            path::{Path, PathBuf},
+        },
     };
 
     impl AsRef<OsStr> for CString8 {

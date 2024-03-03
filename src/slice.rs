@@ -273,11 +273,13 @@ mod alloc_impls {
 
 #[cfg(feature = "std")]
 mod std_impls {
-    use crate::CStr8;
-    use core::cmp;
-    use std::{
-        ffi::{OsStr, OsString},
-        path::Path,
+    use {
+        crate::CStr8,
+        core::cmp,
+        std::{
+            ffi::{OsStr, OsString},
+            path::Path,
+        },
     };
 
     impl AsRef<OsStr> for CStr8 {

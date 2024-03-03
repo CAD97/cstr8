@@ -40,8 +40,7 @@ macro_rules! cstr8 {
 /// Macro-only utilities.
 #[doc(hidden)]
 pub mod __internal_unstable {
-    use crate::CStr8;
-    use core::slice;
+    use {crate::CStr8, core::slice};
 
     pub const fn str_len(x: &str) -> usize {
         x.len()
