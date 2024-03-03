@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2024-03-02
+
 - Now works in a `#![no_std]` configuration (#1, @kupiakos)
 - Added some `From` implementations mirroring those on `str` and `CStr`
 - Internal improvements, started keeping a proper changelog
@@ -20,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added `CString8::into_string_with_nul`
 
-[unreleased]: https://github.com/cad97/cstr8/compare/v0.1.2...HEAD
+[unreleased]: https://github.com/cad97/cstr8/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/cad97/cstr8/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/cad97/cstr8/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/cad97/cstr8/compare/v0.1.0...v0.1.1
