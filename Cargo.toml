@@ -7,7 +7,7 @@ rust-version = "1.72.0"
 description = "string types that are both valid UTF-8 and nul-terminated"
 repository = "https://github.com/CAD97/cstr8/"
 license = "MIT OR Apache-2.0"
-keywords = ["cstr", "zstr", "string8_t", "cstring8", "c string"]
+keywords = ["cstr", "zstr", "string8_t", "cstring8", "cstring"]
 categories = ["development-tools::ffi", "rust-patterns"]
 
 [features]
