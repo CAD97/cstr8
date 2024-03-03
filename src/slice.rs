@@ -1,22 +1,13 @@
-#[cfg(feature = "alloc")]
-use {
-    crate::CString8,
-    alloc::{borrow::ToOwned, string::String},
-    // core::mem,
-};
-
 #[cfg(feature = "std")]
-use std::path::Path;
+use std::{ffi::OsStr, path::Path};
 
-use {
-    core::{
-        cmp, fmt,
-        ops::{Deref, Index},
-        slice::SliceIndex,
-        str::{self, Utf8Error},
-    },
-    std::ffi::{CStr, FromBytesWithNulError, OsStr},
-    thiserror::Error,
+use core::{
+    cmp,
+    ffi::{CStr, FromBytesWithNulError},
+    fmt,
+    ops::{Deref, Index},
+    slice::SliceIndex,
+    str::{self, Utf8Error},
 };
 
 /// String slice which is guaranteed UTF-8 and nul-terminated.
@@ -73,18 +64,6 @@ impl AsRef<[u8]> for CStr8 {
     }
 }
 
-impl AsRef<OsStr> for CStr8 {
-    fn as_ref(&self) -> &OsStr {
-        self.as_os_str()
-    }
-}
-
-impl AsRef<Path> for CStr8 {
-    fn as_ref(&self) -> &Path {
-        self.as_path()
-    }
-}
-
 impl PartialEq<str> for CStr8 {
     fn eq(&self, other: &str) -> bool {
         self.as_str() == other
@@ -133,31 +112,229 @@ impl PartialOrd<CStr8> for CStr {
     }
 }
 
-impl PartialEq<String> for CStr8 {
-    fn eq(&self, other: &String) -> bool {
-        self.as_str() == other
-    }
-}
+impl<'a> TryFrom<&'a CStr> for &'a CStr8 {
+    type Error = CStr8Error;
 
-impl PartialEq<CStr8> for String {
-    fn eq(&self, other: &CStr8) -> bool {
-        self == other.as_str()
+    fn try_from(s: &'a CStr) -> Result<&'a CStr8, CStr8Error> {
+        CStr8::from_utf8_with_nul(s.to_bytes_with_nul())
     }
 }
 
 #[cfg(feature = "alloc")]
-impl ToOwned for CStr8 {
-    type Owned = CString8;
+mod alloc_impls {
+    use {
+        crate::{CStr8, CString8},
+        alloc::{
+            borrow::{Cow, ToOwned},
+            boxed::Box,
+            ffi::CString,
+            rc::Rc,
+            string::String,
+            sync::Arc,
+        },
+        core::ffi::CStr,
+    };
 
-    fn to_owned(&self) -> CString8 {
-        unsafe { CString8::from_vec_unchecked(self.as_bytes_with_nul().to_owned()) }
+    // We only provide From impls matching CStr, not str. This helps avoid some
+    // "does it include the nul terminator" confusion around inferred .into()s.
+
+    impl From<&CStr8> for Arc<CStr8> {
+        fn from(s: &CStr8) -> Arc<CStr8> {
+            let arc = Arc::<[u8]>::from(s.as_bytes_with_nul());
+            // SAFETY: This is how you spell a transmute of Arc's pointee type.
+            unsafe { Arc::from_raw(Arc::into_raw(arc) as *const CStr8) }
+        }
     }
 
-    // fn clone_into(&self, target: &mut CString8) {
-    //     let mut b = mem::take(target).into_bytes_with_nul();
-    //     self.as_bytes_with_nul().clone_into(&mut b);
-    //     *target = unsafe { CString8::from_vec_unchecked(b) }
-    // }
+    impl From<&CStr8> for Arc<CStr> {
+        fn from(s: &CStr8) -> Arc<CStr> {
+            s.as_c_str().into()
+        }
+    }
+
+    impl From<&CStr8> for Arc<str> {
+        fn from(s: &CStr8) -> Arc<str> {
+            s.as_str().into()
+        }
+    }
+
+    impl From<&CStr8> for Box<CStr8> {
+        fn from(s: &CStr8) -> Box<CStr8> {
+            let boxed = Box::<[u8]>::from(s.as_bytes_with_nul());
+            // SAFETY: This is how you spell a transmute of Box's pointee type.
+            unsafe { Box::from_raw(Box::into_raw(boxed) as *mut CStr8) }
+        }
+    }
+
+    impl From<&CStr8> for Box<CStr> {
+        fn from(s: &CStr8) -> Box<CStr> {
+            s.as_c_str().into()
+        }
+    }
+
+    impl From<&CStr8> for Box<str> {
+        fn from(s: &CStr8) -> Box<str> {
+            s.as_str().into()
+        }
+    }
+
+    impl<'a> From<&'a CStr8> for Cow<'a, CStr8> {
+        fn from(s: &'a CStr8) -> Cow<'a, CStr8> {
+            Cow::Borrowed(s)
+        }
+    }
+
+    impl<'a> From<&'a CStr8> for Cow<'a, CStr> {
+        fn from(s: &'a CStr8) -> Cow<'a, CStr> {
+            s.as_c_str().into()
+        }
+    }
+
+    impl<'a> From<&'a CStr8> for Cow<'a, str> {
+        fn from(s: &'a CStr8) -> Cow<'a, str> {
+            s.as_str().into()
+        }
+    }
+
+    impl From<&CStr8> for Rc<CStr8> {
+        fn from(s: &CStr8) -> Rc<CStr8> {
+            let rc = Rc::<[u8]>::from(s.as_bytes_with_nul());
+            // SAFETY: This is how you spell a transmute of Rc's pointee type.
+            unsafe { Rc::from_raw(Rc::into_raw(rc) as *const CStr8) }
+        }
+    }
+
+    impl From<&CStr8> for Rc<CStr> {
+        fn from(s: &CStr8) -> Rc<CStr> {
+            s.as_c_str().into()
+        }
+    }
+
+    impl From<&CStr8> for Rc<str> {
+        fn from(s: &CStr8) -> Rc<str> {
+            s.as_str().into()
+        }
+    }
+
+    impl From<&CStr8> for CString8 {
+        fn from(s: &CStr8) -> CString8 {
+            s.to_owned()
+        }
+    }
+
+    impl From<&CStr8> for CString {
+        fn from(s: &CStr8) -> CString {
+            s.as_c_str().into()
+        }
+    }
+
+    impl From<&CStr8> for String {
+        fn from(s: &CStr8) -> String {
+            s.as_str().into()
+        }
+    }
+
+    impl From<Cow<'_, CStr8>> for Box<CStr8> {
+        fn from(s: Cow<'_, CStr8>) -> Box<CStr8> {
+            match s {
+                Cow::Borrowed(s) => Box::from(s),
+                Cow::Owned(s) => Box::from(s),
+            }
+        }
+    }
+
+    impl PartialEq<String> for CStr8 {
+        fn eq(&self, other: &String) -> bool {
+            self.as_str() == other
+        }
+    }
+
+    impl PartialEq<CStr8> for String {
+        fn eq(&self, other: &CStr8) -> bool {
+            self == other.as_str()
+        }
+    }
+
+    impl ToOwned for CStr8 {
+        type Owned = CString8;
+
+        fn to_owned(&self) -> CString8 {
+            // SAFETY: The single nul terminator is maintained.
+            unsafe { CString8::from_vec_unchecked(self.as_bytes_with_nul().to_owned()) }
+        }
+
+        // fn clone_into(&self, target: &mut CString8) {
+        //     let mut b = mem::take(target).into_bytes_with_nul();
+        //     self.as_bytes_with_nul().clone_into(&mut b);
+        //     *target = unsafe { CString8::from_vec_unchecked(b) }
+        // }
+    }
+}
+
+#[cfg(feature = "std")]
+mod std_impls {
+    use {
+        crate::CStr8,
+        core::cmp,
+        std::{
+            ffi::{OsStr, OsString},
+            path::Path,
+        },
+    };
+
+    impl AsRef<OsStr> for CStr8 {
+        fn as_ref(&self) -> &OsStr {
+            self.as_str().as_ref()
+        }
+    }
+
+    impl AsRef<Path> for CStr8 {
+        fn as_ref(&self) -> &Path {
+            self.as_str().as_ref()
+        }
+    }
+
+    impl PartialEq<OsStr> for CStr8 {
+        fn eq(&self, other: &OsStr) -> bool {
+            self.as_str() == other
+        }
+    }
+
+    impl PartialEq<OsString> for &'_ CStr8 {
+        fn eq(&self, other: &OsString) -> bool {
+            self.as_str() == other
+        }
+    }
+
+    impl PartialEq<OsString> for CStr8 {
+        fn eq(&self, other: &OsString) -> bool {
+            self.as_str() == other
+        }
+    }
+
+    impl PartialEq<CStr8> for OsStr {
+        fn eq(&self, other: &CStr8) -> bool {
+            self == other.as_str()
+        }
+    }
+
+    impl PartialEq<CStr8> for OsString {
+        fn eq(&self, other: &CStr8) -> bool {
+            self == other.as_str()
+        }
+    }
+
+    impl PartialOrd<CStr8> for OsStr {
+        fn partial_cmp(&self, other: &CStr8) -> Option<cmp::Ordering> {
+            self.partial_cmp(other.as_str())
+        }
+    }
+
+    impl PartialOrd<CStr8> for OsString {
+        fn partial_cmp(&self, other: &CStr8) -> Option<cmp::Ordering> {
+            self.partial_cmp(other.as_str())
+        }
+    }
 }
 
 impl<I> Index<I> for CStr8
@@ -214,7 +391,7 @@ impl CStr8 {
     /// You can also just use the generic prelude [`AsRef::as_ref`] instead.
     #[cfg(feature = "std")]
     pub fn as_os_str(&self) -> &OsStr {
-        self.as_str().as_ref()
+        self.as_ref()
     }
 
     /// Converts this to a normal path slice.
@@ -223,7 +400,7 @@ impl CStr8 {
     /// You can also just use the generic prelude [`AsRef::as_ref`] instead.
     #[cfg(feature = "std")]
     pub fn as_path(&self) -> &Path {
-        self.as_str().as_ref()
+        self.as_ref()
     }
 }
 
@@ -278,7 +455,7 @@ impl CStr8 {
     /// at the first one.
     ///
     /// If the slice only has a single nul byte at the end, this method is
-    /// equivalent to [`CStr8::from_bytes_with_nul`].
+    /// equivalent to [`CStr8::from_utf8_with_nul`].
     ///
     /// # Examples
     ///
@@ -328,12 +505,41 @@ impl CStr8 {
 /// An error converting to [`CStr8`].
 ///
 /// If multiple errors apply, which one you get back is unspecified.
-#[derive(Debug, Error)]
+#[derive(Debug)]
 pub enum CStr8Error {
     /// The string is not valid UTF-8.
-    #[error("invalid UTF-8")]
-    InvalidUtf8(#[from] Utf8Error),
+    InvalidUtf8(Utf8Error),
     /// The string does not contain a singular terminating nul byte.
-    #[error("invalid nul terminator")]
-    NulError(#[from] FromBytesWithNulError),
+    NulError(FromBytesWithNulError),
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for CStr8Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            CStr8Error::InvalidUtf8(source) => Some(source),
+            CStr8Error::NulError(source) => Some(source),
+        }
+    }
+}
+
+impl fmt::Display for CStr8Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            CStr8Error::InvalidUtf8(_) => f.write_str("invalid UTF-8"),
+            CStr8Error::NulError(_) => f.write_str("invalid nul terminator"),
+        }
+    }
+}
+
+impl From<Utf8Error> for CStr8Error {
+    fn from(source: Utf8Error) -> Self {
+        CStr8Error::InvalidUtf8(source)
+    }
+}
+
+impl From<FromBytesWithNulError> for CStr8Error {
+    fn from(source: FromBytesWithNulError) -> Self {
+        CStr8Error::NulError(source)
+    }
 }

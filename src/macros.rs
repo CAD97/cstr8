@@ -27,76 +27,56 @@ use crate::CStr8;
 /// ```
 #[macro_export]
 macro_rules! cstr8 {
-    ($s:expr) => {
-        unsafe {
-            const __CSTR: [$crate::u8; $crate::cstr_len_for($s)] = unsafe {
-                $crate::transmute_prefix($crate::Concat(
-                    $crate::str_as_byte_array::<{ $crate::str_len($s) }>($s),
-                    b'\0',
-                ))
-            };
-            $crate::CStr8::from_utf8_with_nul_unchecked(&__CSTR)
-        }
-    };
+    ($s:expr) => {{
+        const __CSTR: $crate::__internal_unstable::CStr8Array<
+            { $crate::__internal_unstable::str_len($s) },
+        > = $crate::__internal_unstable::CStr8Array::new($s);
+        __CSTR.as_cstr8()
+    }};
 }
 
-#[doc(hidden)]
-/// NOT PUBLIC API. DO NOT USE DIRECTLY.
-pub use u8;
-
-#[doc(hidden)]
-/// NOT PUBLIC API. DO NOT USE DIRECTLY.
-#[repr(C)]
-pub struct Concat<A, B>(pub A, pub B);
-
-#[doc(hidden)]
 /// NOT PUBLIC API. DO NOT USE DIRECTLY.
 ///
-/// # Safety
-///
-/// It's `transmute_copy` but without the reference.
-pub const unsafe fn transmute_prefix<From, To>(from: From) -> To {
-    use std::mem::ManuallyDrop;
+/// Macro-only utilities.
+#[doc(hidden)]
+pub mod __internal_unstable {
+    use {crate::CStr8, core::slice};
+
+    pub const fn str_len(x: &str) -> usize {
+        x.len()
+    }
 
     #[repr(C)]
-    union Transmute<From, To> {
-        from: ManuallyDrop<From>,
-        to: ManuallyDrop<To>,
-    }
+    pub struct CStr8Array<const N: usize>([u8; N], u8);
 
-    ManuallyDrop::into_inner(
-        Transmute {
-            from: ManuallyDrop::new(from),
+    impl<const N: usize> CStr8Array<N> {
+        pub const fn new(s: &str) -> Self {
+            assert!(s.len() == N);
+            let bytes = s.as_bytes();
+            let mut out = [0; N];
+            let mut i = 0;
+            while i < N {
+                let c = bytes[i];
+                if c == 0 {
+                    panic!("cstr8: string contains nul byte");
+                }
+                out[i] = c;
+                i += 1;
+            }
+            Self(out, 0)
         }
-        .to,
-    )
-}
 
-#[doc(hidden)]
-/// NOT PUBLIC API. DO NOT USE DIRECTLY.
-pub const fn cstr_len_for(s: &str) -> usize {
-    let mut len = 0;
-    while len < s.len() {
-        if s.as_bytes()[len] == 0 {
-            panic!("cstr8: string contains nul byte");
+        pub const fn as_cstr8(&'static self) -> &'static CStr8 {
+            // SAFETY:
+            // - `Self` is #[repr(C)] and has no padding, and therefore
+            //   is initialized for every byte.
+            // - The only `\0` byte is guaranteed by `new` to be the last byte.
+            unsafe {
+                CStr8::from_utf8_with_nul_unchecked(slice::from_raw_parts(
+                    (self as *const Self).cast(),
+                    N + 1,
+                ))
+            }
         }
-        len += 1;
     }
-    len + 1
-}
-
-#[doc(hidden)]
-/// NOT PUBLIC API. DO NOT USE DIRECTLY.
-pub const fn str_len(s: &str) -> usize {
-    s.len()
-}
-
-#[doc(hidden)]
-/// NOT PUBLIC API. DO NOT USE DIRECTLY.
-///
-/// # Safety
-///
-/// `N <= s.len()`
-pub const unsafe fn str_as_byte_array<const N: usize>(s: &str) -> [u8; N] {
-    *(s.as_ptr() as *const [u8; N])
 }

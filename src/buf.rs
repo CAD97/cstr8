@@ -1,12 +1,15 @@
 use {
     crate::CStr8,
     alloc::{
+        borrow::Cow,
+        boxed::Box,
+        ffi::{CString, FromVecWithNulError, NulError},
+        rc::Rc,
         string::{FromUtf8Error, String},
+        sync::Arc,
         vec::Vec,
     },
-    core::{borrow::Borrow, fmt, ops::Deref, str},
-    std::ffi::{CStr, CString, FromVecWithNulError, NulError},
-    thiserror::Error,
+    core::{borrow::Borrow, ffi::CStr, fmt, ops::Deref, str},
 };
 
 /// Owned string which is guaranteed UTF-8 and nul-terminated.
@@ -56,6 +59,87 @@ impl AsRef<str> for CString8 {
 impl Borrow<CStr8> for CString8 {
     fn borrow(&self) -> &CStr8 {
         self
+    }
+}
+
+impl<'a> From<&'a CString8> for Cow<'a, CStr8> {
+    fn from(s: &'a CString8) -> Cow<'a, CStr8> {
+        Cow::Borrowed(s.as_ref())
+    }
+}
+
+impl From<Box<CStr8>> for CString8 {
+    fn from(s: Box<CStr8>) -> CString8 {
+        // SAFETY: This is how you spell a transmute of Box's pointee type.
+        let s: Box<CStr> = unsafe { Box::from_raw(Box::into_raw(s) as *mut CStr) };
+        CString8 {
+            raw: s.into_c_string(),
+        }
+    }
+}
+
+impl From<CString8> for Arc<CStr8> {
+    fn from(s: CString8) -> Arc<CStr8> {
+        let arc: Arc<[u8]> = Arc::from(s.into_bytes_with_nul().into_boxed_slice());
+        // SAFETY: This is how you spell a transmute of Arc's pointee type.
+        unsafe { Arc::from_raw(Arc::into_raw(arc) as *const CStr8) }
+    }
+}
+
+impl From<CString8> for Box<CStr8> {
+    fn from(s: CString8) -> Box<CStr8> {
+        let s: Box<[u8]> = s.into_bytes_with_nul().into_boxed_slice();
+        // SAFETY: This is how you spell a transmute of Box's pointee type.
+        unsafe { Box::from_raw(Box::into_raw(s) as *mut CStr8) }
+    }
+}
+
+impl<'a> From<CString8> for Cow<'a, CStr8> {
+    fn from(s: CString8) -> Cow<'a, CStr8> {
+        Cow::Owned(s)
+    }
+}
+
+impl From<CString8> for Rc<CStr8> {
+    fn from(s: CString8) -> Rc<CStr8> {
+        let rc: Rc<[u8]> = Rc::from(s.into_bytes_with_nul().into_boxed_slice());
+        // SAFETY: This is how you spell a transmute of Rc's pointee type.
+        unsafe { Rc::from_raw(Rc::into_raw(rc) as *const CStr8) }
+    }
+}
+
+#[cfg(feature = "std")]
+mod std_impls {
+    use {
+        crate::CString8,
+        std::{
+            ffi::{OsStr, OsString},
+            path::{Path, PathBuf},
+        },
+    };
+
+    impl AsRef<OsStr> for CString8 {
+        fn as_ref(&self) -> &OsStr {
+            self.as_str().as_ref()
+        }
+    }
+
+    impl AsRef<Path> for CString8 {
+        fn as_ref(&self) -> &Path {
+            self.as_str().as_ref()
+        }
+    }
+
+    impl From<CString8> for OsString {
+        fn from(s: CString8) -> OsString {
+            s.into_string().into()
+        }
+    }
+
+    impl From<CString8> for PathBuf {
+        fn from(s: CString8) -> PathBuf {
+            s.into_string().into()
+        }
     }
 }
 
@@ -158,12 +242,41 @@ impl CString8 {
 /// An error converting to [`CString8`].
 ///
 /// If multiple errors apply, which one you get back is unspecified.
-#[derive(Debug, Error)]
+#[derive(Debug)]
 pub enum CString8Error {
     /// The string is not valid UTF-8.
-    #[error("invalid UTF-8")]
-    InvalidUtf8(#[from] FromUtf8Error),
+    InvalidUtf8(FromUtf8Error),
     /// The string does not contain a singular terminating nul byte.
-    #[error("invalid nul terminator")]
-    NulError(#[from] FromVecWithNulError),
+    NulError(FromVecWithNulError),
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for CString8Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            CString8Error::InvalidUtf8(source) => Some(source),
+            CString8Error::NulError(source) => Some(source),
+        }
+    }
+}
+
+impl fmt::Display for CString8Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            CString8Error::InvalidUtf8(_) => f.write_str("invalid UTF-8"),
+            CString8Error::NulError(_) => f.write_str("invalid nul terminator"),
+        }
+    }
+}
+
+impl From<FromUtf8Error> for CString8Error {
+    fn from(source: FromUtf8Error) -> Self {
+        CString8Error::InvalidUtf8(source)
+    }
+}
+
+impl From<FromVecWithNulError> for CString8Error {
+    fn from(source: FromVecWithNulError) -> Self {
+        CString8Error::NulError(source)
+    }
 }
