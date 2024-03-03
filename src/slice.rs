@@ -112,11 +112,136 @@ impl PartialOrd<CStr8> for CStr {
     }
 }
 
+impl<'a> TryFrom<&'a CStr> for &'a CStr8 {
+    type Error = CStr8Error;
+
+    fn try_from(s: &'a CStr) -> Result<&'a CStr8, CStr8Error> {
+        CStr8::from_utf8_with_nul(s.to_bytes_with_nul())
+    }
+}
+
 #[cfg(feature = "alloc")]
-#[cfg_attr(feature = "doc_nightly", doc(cfg(feature = "alloc")))]
 mod alloc_impls {
-    use crate::{CStr8, CString8};
-    use alloc::{borrow::ToOwned, string::String};
+    use {
+        crate::{CStr8, CString8},
+        alloc::{
+            borrow::{Cow, ToOwned},
+            boxed::Box,
+            ffi::CString,
+            rc::Rc,
+            string::String,
+            sync::Arc,
+        },
+        core::ffi::CStr,
+    };
+
+    // We only provide From impls matching CStr, not str. This helps avoid some
+    // "does it include the nul terminator" confusion around inferred .into()s.
+
+    impl From<&CStr8> for Arc<CStr8> {
+        fn from(s: &CStr8) -> Arc<CStr8> {
+            let arc = Arc::<[u8]>::from(s.as_bytes_with_nul());
+            // SAFETY: This is how you spell a transmute of Arc's pointee type.
+            unsafe { Arc::from_raw(Arc::into_raw(arc) as *const CStr8) }
+        }
+    }
+
+    impl From<&CStr8> for Arc<CStr> {
+        fn from(s: &CStr8) -> Arc<CStr> {
+            s.as_c_str().into()
+        }
+    }
+
+    impl From<&CStr8> for Arc<str> {
+        fn from(s: &CStr8) -> Arc<str> {
+            s.as_str().into()
+        }
+    }
+
+    impl From<&CStr8> for Box<CStr8> {
+        fn from(s: &CStr8) -> Box<CStr8> {
+            let boxed = Box::<[u8]>::from(s.as_bytes_with_nul());
+            // SAFETY: This is how you spell a transmute of Box's pointee type.
+            unsafe { Box::from_raw(Box::into_raw(boxed) as *mut CStr8) }
+        }
+    }
+
+    impl From<&CStr8> for Box<CStr> {
+        fn from(s: &CStr8) -> Box<CStr> {
+            s.as_c_str().into()
+        }
+    }
+
+    impl From<&CStr8> for Box<str> {
+        fn from(s: &CStr8) -> Box<str> {
+            s.as_str().into()
+        }
+    }
+
+    impl<'a> From<&'a CStr8> for Cow<'a, CStr8> {
+        fn from(s: &'a CStr8) -> Cow<'a, CStr8> {
+            Cow::Borrowed(s)
+        }
+    }
+
+    impl<'a> From<&'a CStr8> for Cow<'a, CStr> {
+        fn from(s: &'a CStr8) -> Cow<'a, CStr> {
+            s.as_c_str().into()
+        }
+    }
+
+    impl<'a> From<&'a CStr8> for Cow<'a, str> {
+        fn from(s: &'a CStr8) -> Cow<'a, str> {
+            s.as_str().into()
+        }
+    }
+
+    impl From<&CStr8> for Rc<CStr8> {
+        fn from(s: &CStr8) -> Rc<CStr8> {
+            let rc = Rc::<[u8]>::from(s.as_bytes_with_nul());
+            // SAFETY: This is how you spell a transmute of Rc's pointee type.
+            unsafe { Rc::from_raw(Rc::into_raw(rc) as *const CStr8) }
+        }
+    }
+
+    impl From<&CStr8> for Rc<CStr> {
+        fn from(s: &CStr8) -> Rc<CStr> {
+            s.as_c_str().into()
+        }
+    }
+
+    impl From<&CStr8> for Rc<str> {
+        fn from(s: &CStr8) -> Rc<str> {
+            s.as_str().into()
+        }
+    }
+
+    impl From<&CStr8> for CString8 {
+        fn from(s: &CStr8) -> CString8 {
+            s.to_owned()
+        }
+    }
+
+    impl From<&CStr8> for CString {
+        fn from(s: &CStr8) -> CString {
+            s.as_c_str().into()
+        }
+    }
+
+    impl From<&CStr8> for String {
+        fn from(s: &CStr8) -> String {
+            s.as_str().into()
+        }
+    }
+
+    impl From<Cow<'_, CStr8>> for Box<CStr8> {
+        fn from(s: Cow<'_, CStr8>) -> Box<CStr8> {
+            match s {
+                Cow::Borrowed(s) => Box::from(s),
+                Cow::Owned(s) => Box::from(s),
+            }
+        }
+    }
 
     impl PartialEq<String> for CStr8 {
         fn eq(&self, other: &String) -> bool {
@@ -129,10 +254,12 @@ mod alloc_impls {
             self == other.as_str()
         }
     }
+
     impl ToOwned for CStr8 {
         type Owned = CString8;
 
         fn to_owned(&self) -> CString8 {
+            // SAFETY: The single nul terminator is maintained.
             unsafe { CString8::from_vec_unchecked(self.as_bytes_with_nul().to_owned()) }
         }
 
@@ -145,10 +272,13 @@ mod alloc_impls {
 }
 
 #[cfg(feature = "std")]
-#[cfg_attr(feature = "doc_nightly", doc(cfg(feature = "std")))]
 mod std_impls {
     use crate::CStr8;
-    use std::{ffi::OsStr, path::Path};
+    use core::cmp;
+    use std::{
+        ffi::{OsStr, OsString},
+        path::Path,
+    };
 
     impl AsRef<OsStr> for CStr8 {
         fn as_ref(&self) -> &OsStr {
@@ -159,6 +289,48 @@ mod std_impls {
     impl AsRef<Path> for CStr8 {
         fn as_ref(&self) -> &Path {
             self.as_str().as_ref()
+        }
+    }
+
+    impl PartialEq<OsStr> for CStr8 {
+        fn eq(&self, other: &OsStr) -> bool {
+            self.as_str() == other
+        }
+    }
+
+    impl PartialEq<OsString> for &'_ CStr8 {
+        fn eq(&self, other: &OsString) -> bool {
+            self.as_str() == other
+        }
+    }
+
+    impl PartialEq<OsString> for CStr8 {
+        fn eq(&self, other: &OsString) -> bool {
+            self.as_str() == other
+        }
+    }
+
+    impl PartialEq<CStr8> for OsStr {
+        fn eq(&self, other: &CStr8) -> bool {
+            self == other.as_str()
+        }
+    }
+
+    impl PartialEq<CStr8> for OsString {
+        fn eq(&self, other: &CStr8) -> bool {
+            self == other.as_str()
+        }
+    }
+
+    impl PartialOrd<CStr8> for OsStr {
+        fn partial_cmp(&self, other: &CStr8) -> Option<cmp::Ordering> {
+            self.partial_cmp(other.as_str())
+        }
+    }
+
+    impl PartialOrd<CStr8> for OsString {
+        fn partial_cmp(&self, other: &CStr8) -> Option<cmp::Ordering> {
+            self.partial_cmp(other.as_str())
         }
     }
 }
@@ -216,7 +388,6 @@ impl CStr8 {
     ///
     /// You can also just use the generic prelude [`AsRef::as_ref`] instead.
     #[cfg(feature = "std")]
-    #[cfg_attr(feature = "doc_nightly", doc(cfg(feature = "std")))]
     pub fn as_os_str(&self) -> &OsStr {
         self.as_ref()
     }
@@ -226,7 +397,6 @@ impl CStr8 {
     ///
     /// You can also just use the generic prelude [`AsRef::as_ref`] instead.
     #[cfg(feature = "std")]
-    #[cfg_attr(feature = "doc_nightly", doc(cfg(feature = "std")))]
     pub fn as_path(&self) -> &Path {
         self.as_ref()
     }
@@ -342,7 +512,6 @@ pub enum CStr8Error {
 }
 
 #[cfg(feature = "std")]
-#[cfg_attr(feature = "doc_nightly", doc(cfg(feature = "std")))]
 impl std::error::Error for CStr8Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {

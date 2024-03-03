@@ -28,10 +28,10 @@ use crate::CStr8;
 #[macro_export]
 macro_rules! cstr8 {
     ($s:expr) => {{
-        const CSTR: $crate::__internal_unstable::CStr8Array<
+        const __CSTR: $crate::__internal_unstable::CStr8Array<
             { $crate::__internal_unstable::str_len($s) },
         > = $crate::__internal_unstable::CStr8Array::new($s);
-        CSTR.as_cstr8()
+        __CSTR.as_cstr8()
     }};
 }
 

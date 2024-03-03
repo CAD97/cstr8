@@ -1,8 +1,12 @@
 use {
     crate::CStr8,
     alloc::{
+        borrow::Cow,
+        boxed::Box,
         ffi::{CString, FromVecWithNulError, NulError},
+        rc::Rc,
         string::{FromUtf8Error, String},
+        sync::Arc,
         vec::Vec,
     },
     core::{borrow::Borrow, ffi::CStr, fmt, ops::Deref, str},
@@ -55,6 +59,85 @@ impl AsRef<str> for CString8 {
 impl Borrow<CStr8> for CString8 {
     fn borrow(&self) -> &CStr8 {
         self
+    }
+}
+
+impl<'a> From<&'a CString8> for Cow<'a, CStr8> {
+    fn from(s: &'a CString8) -> Cow<'a, CStr8> {
+        Cow::Borrowed(s.as_ref())
+    }
+}
+
+impl From<Box<CStr8>> for CString8 {
+    fn from(s: Box<CStr8>) -> CString8 {
+        // SAFETY: This is how you spell a transmute of Box's pointee type.
+        let s: Box<CStr> = unsafe { Box::from_raw(Box::into_raw(s) as *mut CStr) };
+        CString8 {
+            raw: s.into_c_string(),
+        }
+    }
+}
+
+impl From<CString8> for Arc<CStr8> {
+    fn from(s: CString8) -> Arc<CStr8> {
+        let arc: Arc<[u8]> = Arc::from(s.into_bytes_with_nul().into_boxed_slice());
+        // SAFETY: This is how you spell a transmute of Arc's pointee type.
+        unsafe { Arc::from_raw(Arc::into_raw(arc) as *const CStr8) }
+    }
+}
+
+impl From<CString8> for Box<CStr8> {
+    fn from(s: CString8) -> Box<CStr8> {
+        let s: Box<[u8]> = s.into_bytes_with_nul().into_boxed_slice();
+        // SAFETY: This is how you spell a transmute of Box's pointee type.
+        unsafe { Box::from_raw(Box::into_raw(s) as *mut CStr8) }
+    }
+}
+
+impl<'a> From<CString8> for Cow<'a, CStr8> {
+    fn from(s: CString8) -> Cow<'a, CStr8> {
+        Cow::Owned(s)
+    }
+}
+
+impl From<CString8> for Rc<CStr8> {
+    fn from(s: CString8) -> Rc<CStr8> {
+        let rc: Rc<[u8]> = Rc::from(s.into_bytes_with_nul().into_boxed_slice());
+        // SAFETY: This is how you spell a transmute of Rc's pointee type.
+        unsafe { Rc::from_raw(Rc::into_raw(rc) as *const CStr8) }
+    }
+}
+
+#[cfg(feature = "std")]
+mod std_impls {
+    use crate::CString8;
+    use std::{
+        ffi::{OsStr, OsString},
+        path::{Path, PathBuf},
+    };
+
+    impl AsRef<OsStr> for CString8 {
+        fn as_ref(&self) -> &OsStr {
+            self.as_str().as_ref()
+        }
+    }
+
+    impl AsRef<Path> for CString8 {
+        fn as_ref(&self) -> &Path {
+            self.as_str().as_ref()
+        }
+    }
+
+    impl From<CString8> for OsString {
+        fn from(s: CString8) -> OsString {
+            s.into_string().into()
+        }
+    }
+
+    impl From<CString8> for PathBuf {
+        fn from(s: CString8) -> PathBuf {
+            s.into_string().into()
+        }
     }
 }
 
@@ -166,7 +249,6 @@ pub enum CString8Error {
 }
 
 #[cfg(feature = "std")]
-#[cfg_attr(feature = "doc_nightly", doc(cfg(feature = "std")))]
 impl std::error::Error for CString8Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {

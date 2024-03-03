@@ -1,59 +1,55 @@
 name: CI
 on:
   pull_request:
-    branches:
-      - main
+  merge_group:
   push:
     branches:
       - main
 
 jobs:
-  tests:
-    name: Tests
+  feats:
+    name: Check features
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        rust:
-          - stable
-          - 1.69.0 # MSRV
-          - nightly
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@1.72 # MSRV
+      - name: Check (-std -alloc)
+        run: cargo check --no-default-features
+      - name: Check (-std +alloc)
+        run: cargo check --no-default-features --features alloc
+      - name: Check (+std +alloc)
+        run: cargo check --no-default-features --features alloc,std
 
-      - uses: dtolnay/rust-toolchain@master
-        name: Setup rust toolchain
-        with:
-          toolchain: ${{ matrix.rust }}
-          components: rustfmt, clippy
-
-      - uses: Swatinem/rust-cache@v2
-        name: Load dependencies from cache
-
-      - name: Build with default features
-        run: cargo build
-
-      - name: Build with unstable features
-        if: ${{ matrix.rust == 'nightly' }}
-        run: cargo build --all-features
-
-      - name: Build with no_std
-        run: cargo build --no-default-features
-
-      - name: Build with no_std+alloc
-        run: cargo build --no-default-features --features alloc
-
-      - name: Test with default features
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@1.72 # MSRV
+      - name: Build tests
+        run: cargo test --no-run
+      - name: Run tests
         run: cargo test
 
-      - name: Test with minimal features
-        run: cargo test --no-default-features
-
-      - name: Check for non-standard formatting
-        if: ${{ matrix.rust == 'stable' }}
-        run: cargo fmt --all -- --check
-
-      - name: Check for clippy hints
-        if: ${{ matrix.rust == 'stable' }}
-        run: cargo clippy --workspace --all-targets -- -D warnings
+  style:
+    name: Style tests
+    runs-on: ubuntu-latest
+    env:
+      RUSTDOCFLAGS: -Dwarnings
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+      - name: Install cargo-docs-rs
+        uses: dtolnay/install@cargo-docs-rs
+      - name: Check documentation build
+        run: cargo docs-rs
+      - name: Check clippy lints
+        run: cargo clippy -- -D warnings
+      - name: Check formatting
+        run: cargo fmt -- --check
