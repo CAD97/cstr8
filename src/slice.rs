@@ -402,6 +402,15 @@ impl CStr8 {
     pub fn as_path(&self) -> &Path {
         self.as_ref()
     }
+
+    /// Converts this to a raw C string pointer.
+    ///
+    /// This method deliberately shadows `str::as_ptr` to ensure that for the
+    /// purpose of the aliasing model, the returned pointer will be valid for
+    /// the entire byte range, including the nul terminator.
+    pub const fn as_ptr(&self) -> *const u8 {
+        self.as_bytes_with_nul().as_ptr()
+    }
 }
 
 /// Constructors.
