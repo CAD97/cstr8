@@ -16,11 +16,11 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@1.72 # MSRV
       - name: Check (-std -alloc)
-        run: cargo check --no-default-features
+        run: cargo check --lib --no-default-features
       - name: Check (-std +alloc)
-        run: cargo check --no-default-features --features alloc
+        run: cargo check --lib --no-default-features --features alloc
       - name: Check (+std +alloc)
-        run: cargo check --no-default-features --features alloc,std
+        run: cargo check --lib --no-default-features --features alloc,std
 
   tests:
     name: Tests
