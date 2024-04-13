@@ -17,6 +17,9 @@ mod buf;
 
 mod slice;
 
+#[cfg(test)]
+mod tests;
+
 #[cfg(feature = "alloc")]
 pub use self::buf::*;
 
