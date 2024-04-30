@@ -3,7 +3,7 @@ use std::{ffi::OsStr, path::Path};
 
 use core::{
     cmp,
-    ffi::{CStr, FromBytesWithNulError},
+    ffi::{c_char, CStr, FromBytesWithNulError},
     fmt,
     ops::{Deref, Index},
     slice::SliceIndex,
@@ -361,6 +361,12 @@ impl CStr8 {
         }
     }
 
+    /// Converts this to a normal string slice.
+    /// *This will include the nul terminator*.
+    pub const fn as_str_with_nul(&self) -> &str {
+        &self.raw
+    }
+
     /// Converts this to a normal C string.
     /// *This will include the nul terminator*.
     ///
@@ -411,10 +417,58 @@ impl CStr8 {
     pub const fn as_ptr(&self) -> *const u8 {
         self.as_bytes_with_nul().as_ptr()
     }
+
+    /// Converts this to a raw C string pointer.
+    ///
+    /// Unlike [`as_ptr`], this method uses [`*const c_char`][`c_char`] for
+    /// better FFI compatibility.
+    ///
+    /// [`as_ptr`]: Self::from_ptr
+    /// [`c_char`]: core::ffi::c_char
+    pub const fn as_ffi_ptr(&self) -> *const c_char {
+        self.as_ptr().cast()
+    }
 }
 
 /// Constructors.
 impl CStr8 {
+    /// Asserts that the string slice is nul-terminated.
+    pub fn from_str_with_nul(s: &str) -> Result<&CStr8, CStr8Error> {
+        let _ = CStr::from_bytes_with_nul(s.as_bytes())?;
+        Ok(unsafe { CStr8::from_str_with_nul_unchecked(s) })
+    }
+
+    /// Asserts that the string slice contains a nul character.
+    pub fn from_str_until_nul(s: &str) -> Result<&CStr8, CStr8Error> {
+        let nul_idx = s.find('\0').unwrap_or(s.len());
+        Self::from_str_with_nul(&s[..nul_idx])
+    }
+
+    /// Unsafely assume that the string slice is nul terminated.
+    ///
+    /// # Safety
+    ///
+    /// The provided string must contain a single terminating nul byte and no
+    /// interior nul bytes.
+    pub unsafe fn from_str_with_nul_unchecked(s: &str) -> &CStr8 {
+        &*(s as *const str as *const CStr8)
+    }
+
+    /// Assert that the `CStr` is valid UTF-8.
+    pub fn from_utf8_cstr(s: &CStr) -> Result<&CStr8, CStr8Error> {
+        let _ = str::from_utf8(s.to_bytes())?;
+        Ok(unsafe { CStr8::from_utf8_cstr_unchecked(s) })
+    }
+
+    /// Unsafely assume that the `CStr` is valid UTF-8.
+    ///
+    /// # Safety
+    ///
+    /// The provided c string must be valid UTF-8.
+    pub unsafe fn from_utf8_cstr_unchecked(s: &CStr) -> &CStr8 {
+        &*(s as *const CStr as *const CStr8)
+    }
+
     /// Asserts that the byte slice is valid UTF-8 and nul-terminated.
     ///
     /// # Examples
@@ -508,6 +562,22 @@ impl CStr8 {
     /// chosen lifetime must not outlive the raw C string's provenance.
     pub unsafe fn from_ptr<'a>(ptr: *const u8) -> &'a CStr8 {
         CStr8::from_utf8_with_nul_unchecked(CStr::from_ptr(ptr.cast()).to_bytes_with_nul())
+    }
+
+    /// Wraps a raw C string into a `CStr8`.
+    ///
+    /// Unlike [`from_ptr`], this method uses [`*const c_char`][`c_char`] for
+    /// better FFI compatibility.
+    ///
+    /// [`from_ptr`]: Self::from_ptr
+    /// [`c_char`]: core::ffi::c_char
+    ///
+    /// # Safety
+    ///
+    /// The provided pointer must reference valid nul-terminated UTF-8, and the
+    /// chosen lifetime must not outlive the raw C string's provenance.
+    pub unsafe fn from_ffi_ptr<'a>(ptr: *const c_char) -> &'a CStr8 {
+        CStr8::from_utf8_with_nul_unchecked(CStr::from_ptr(ptr).to_bytes_with_nul())
     }
 }
 
