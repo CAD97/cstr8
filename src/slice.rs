@@ -3,7 +3,7 @@ use std::{ffi::OsStr, path::Path};
 
 use core::{
     cmp,
-    ffi::{CStr, FromBytesWithNulError},
+    ffi::{c_char, CStr, FromBytesWithNulError},
     fmt,
     ops::{Deref, Index},
     slice::SliceIndex,
@@ -411,6 +411,17 @@ impl CStr8 {
     pub const fn as_ptr(&self) -> *const u8 {
         self.as_bytes_with_nul().as_ptr()
     }
+
+    /// Converts this to a raw C string pointer.
+    ///
+    /// Unlike [`as_ptr`], this method uses [`*const c_char`][`c_char`] for
+    /// better FFI compatibility.
+    ///
+    /// [`as_ptr`]: Self::from_ptr
+    /// [`c_char`]: core::ffi::c_char
+    pub const fn as_ffi_ptr(&self) -> *const c_char {
+        self.as_ptr().cast()
+    }
 }
 
 /// Constructors.
@@ -508,6 +519,22 @@ impl CStr8 {
     /// chosen lifetime must not outlive the raw C string's provenance.
     pub unsafe fn from_ptr<'a>(ptr: *const u8) -> &'a CStr8 {
         CStr8::from_utf8_with_nul_unchecked(CStr::from_ptr(ptr.cast()).to_bytes_with_nul())
+    }
+
+    /// Wraps a raw C string into a `CStr8`.
+    ///
+    /// Unlike [`from_ptr`], this method uses [`*const c_char`][`c_char`] for
+    /// better FFI compatibility.
+    ///
+    /// [`from_ptr`]: Self::from_ptr
+    /// [`c_char`]: core::ffi::c_char
+    ///
+    /// # Safety
+    ///
+    /// The provided pointer must reference valid nul-terminated UTF-8, and the
+    /// chosen lifetime must not outlive the raw C string's provenance.
+    pub unsafe fn from_ffi_ptr<'a>(ptr: *const c_char) -> &'a CStr8 {
+        CStr8::from_utf8_with_nul_unchecked(CStr::from_ptr(ptr).to_bytes_with_nul())
     }
 }
 

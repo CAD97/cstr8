@@ -169,7 +169,7 @@ impl CString8 {
         }
     }
 
-    /// Retakes ownership of a `CString8` that was previously transfered via
+    /// Retakes ownership of a `CString8` that was previously transferred via
     /// [`CString8::into_raw`].
     ///
     /// The length of the string will be recalculated from the pointer.
