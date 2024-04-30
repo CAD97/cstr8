@@ -361,6 +361,12 @@ impl CStr8 {
         }
     }
 
+    /// Converts this to a normal string slice.
+    /// *This will include the nul terminator*.
+    pub const fn as_str_with_nul(&self) -> &str {
+        &self.raw
+    }
+
     /// Converts this to a normal C string.
     /// *This will include the nul terminator*.
     ///
@@ -426,6 +432,43 @@ impl CStr8 {
 
 /// Constructors.
 impl CStr8 {
+    /// Asserts that the string slice is nul-terminated.
+    pub fn from_str_with_nul(s: &str) -> Result<&CStr8, CStr8Error> {
+        let _ = CStr::from_bytes_with_nul(s.as_bytes())?;
+        Ok(unsafe { CStr8::from_str_with_nul_unchecked(s) })
+    }
+
+    /// Asserts that the string slice contains a nul character.
+    pub fn from_str_until_nul(s: &str) -> Result<&CStr8, CStr8Error> {
+        let nul_idx = s.find('\0').unwrap_or(s.len());
+        Self::from_str_with_nul(&s[..nul_idx])
+    }
+
+    /// Unsafely assume that the string slice is nul terminated.
+    ///
+    /// # Safety
+    ///
+    /// The provided string must contain a single terminating nul byte and no
+    /// interior nul bytes.
+    pub unsafe fn from_str_with_nul_unchecked(s: &str) -> &CStr8 {
+        &*(s as *const str as *const CStr8)
+    }
+
+    /// Assert that the `CStr` is valid UTF-8.
+    pub fn from_utf8_cstr(s: &CStr) -> Result<&CStr8, CStr8Error> {
+        let _ = str::from_utf8(s.to_bytes())?;
+        Ok(unsafe { CStr8::from_utf8_cstr_unchecked(s) })
+    }
+
+    /// Unsafely assume that the `CStr` is valid UTF-8.
+    ///
+    /// # Safety
+    ///
+    /// The provided c string must be valid UTF-8.
+    pub unsafe fn from_utf8_cstr_unchecked(s: &CStr) -> &CStr8 {
+        &*(s as *const CStr as *const CStr8)
+    }
+
     /// Asserts that the byte slice is valid UTF-8 and nul-terminated.
     ///
     /// # Examples
